@@ -1,0 +1,79 @@
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap');
+
+/* ── Tokens ─────────────────────────────────────────────────────────────── */
+:root {
+  --bg: #f5f4f0;
+  --surface: #faf9f7;
+  --surface-2: #ffffff;
+  --border: #dddbd5;
+  --border-soft: rgba(0,0,0,0.07);
+
+  --text: #1a1917;
+  --text-muted: #6b6965;
+  --text-faint: #aeaca7;
+
+  --accent: #0f5f64;
+  --accent-hover: #0a4a4f;
+  --accent-bg: #e6f0f0;
+  --accent-text: #0a4a4f;
+
+  --success: #2d6a0f;
+  --warning: #854d0e;
+  --error: #8b1a1a;
+
+  --font-body: 'General Sans', 'Inter', system-ui, sans-serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-mono: 'Berkeley Mono', 'Fira Code', ui-monospace, monospace;
+
+  --radius: 4px;
+  --radius-lg: 12px;
+  --radius-xl: 20px;
+  --max-w: 1120px;
+
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+}
+
+[data-theme="dark"] {
+  --bg: #131210;
+  --surface: #1a1917;
+  --surface-2: #201f1c;
+  --border: #2e2c29;
+  --border-soft: rgba(255,255,255,0.06);
+
+  --text: #e8e6e1;
+  --text-muted: #8c8a85;
+  --text-faint: #52504c;
+
+  --accent: #4a9da3;
+  --accent-hover: #5cb0b7;
+  --accent-bg: #1a2e2f;
+  --accent-text: #7ecfd4;
+
+  --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.2);
+}
+
+/* ── Reset ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+h1, h2, h3, h4 { margin: 0; line-height: 1.1; }
+p { margin: 0; }
+button { font-family: inherit; cursor: pointer; }
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+.container {
+  width: min(calc(100% - 2rem), var(--max-w));
+  margin: 0 auto;
+}
