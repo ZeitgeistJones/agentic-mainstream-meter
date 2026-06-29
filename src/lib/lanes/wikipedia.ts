@@ -13,7 +13,7 @@ export const WIKI_BASKET = [
   'Software_agent',
 ]
 
-const WIKI_API = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents'
+const WIKI_API = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/all-agents'
 
 function getDateRange(): { start: string; end: string } {
   const now = new Date()
