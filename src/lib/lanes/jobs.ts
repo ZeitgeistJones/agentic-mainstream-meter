@@ -1,9 +1,6 @@
 import type { LaneResult } from '@/types'
 import { normalizeJobsScore } from '@/lib/scoring'
 
-// ─── Keyword basket ───────────────────────────────────────────────────────────
-// Remotive's free API supports a single `search` term per request, so we run
-// these in parallel and de-dupe by job id.
 const JOBS_KEYWORDS = [
   'AI agent',
   'agentic AI',
@@ -18,6 +15,7 @@ interface RemotiveJob {
   title: string
   company_name: string
   url: string
+  publication_date?: string
 }
 
 async function fetchKeywordJobs(keyword: string): Promise<RemotiveJob[]> {
@@ -39,14 +37,23 @@ export async function fetchJobsLane(): Promise<LaneResult> {
   try {
     const results = await Promise.all(JOBS_KEYWORDS.map(fetchKeywordJobs))
 
-    // De-dupe across keyword searches — same posting can match multiple terms
     const seen = new Map<number, RemotiveJob>()
     for (const jobs of results) {
       for (const job of jobs) seen.set(job.id, job)
     }
 
-    const totalPostings = seen.size
+    const allJobs = Array.from(seen.values())
+    const totalPostings = allJobs.length
     const score = normalizeJobsScore(totalPostings)
+
+    const sample = allJobs
+      .sort((a, b) => (b.publication_date ?? '').localeCompare(a.publication_date ?? ''))
+      .slice(0, 5)
+      .map(job => ({
+        title: job.title,
+        company: job.company_name,
+        url: job.url,
+      }))
 
     return {
       id: 'jobs',
@@ -58,6 +65,7 @@ export async function fetchJobsLane(): Promise<LaneResult> {
       freshAt,
       sourceUrl: 'https://remotive.com',
       status: 'live',
+      details: sample,
     }
   } catch (err) {
     return {
