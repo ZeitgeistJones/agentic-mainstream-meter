@@ -20,7 +20,7 @@ const LANE_META: Record<string, { icon: string; measures: string; doesNotMeasure
   },
   trends: {
     icon: '◈',
-    measures: 'Search momentum and demand growth',
+    measures: 'Developer momentum and build activity',
     doesNotMeasure: 'Exact market size or real usage counts',
   },
   jobs: {
@@ -147,6 +147,34 @@ function LaneCard({ lane }: { lane: LaneResult }) {
           <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
             <span style={{ color: 'var(--text-faint)', fontWeight: 600 }}>Not:</span> {meta.doesNotMeasure}
           </p>
+        </div>
+      )}
+
+      {/* Sample details — lets you verify what's actually being counted */}
+      {lane.details && lane.details.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          <p style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-faint)', fontWeight: 600 }}>
+            Sample of what&apos;s counted
+          </p>
+          {lane.details.map((d, i) => (
+            <a
+              key={i}
+              href={d.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: '0.74rem',
+                color: 'var(--text-muted)',
+                textDecoration: 'none',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '0.5rem',
+              }}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
+              <span style={{ color: 'var(--text-faint)', flexShrink: 0 }}>{d.company}</span>
+            </a>
+          ))}
         </div>
       )}
     </article>
@@ -372,7 +400,8 @@ export function Dashboard({ data }: { data: CompositeScore }) {
           </p>
           <div style={{ display: 'flex', gap: '1.25rem' }}>
             <a href="https://wikimedia.org/api/rest_v1/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--text-faint)', textDecoration: 'none' }}>Wikimedia API</a>
-            <a href="https://apify.com" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--text-faint)', textDecoration: 'none' }}>Apify</a>
+            <a href="https://github.com" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--text-faint)', textDecoration: 'none' }}>GitHub Search API</a>
+            <a href="https://remotive.com" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--text-faint)', textDecoration: 'none' }}>Remotive</a>
           </div>
         </div>
       </footer>
