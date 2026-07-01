@@ -12,7 +12,7 @@ async function fetchKeywordCount(keyword: string, apiKey: string): Promise<numbe
     keywords: keyword,
     language: 'en',
     start_date: startDate,
-    page_size: '200',
+    page_size: '20',
   })
 
   const res = await fetch(`https://api.currentsapi.services/v1/search?${params}`, {
