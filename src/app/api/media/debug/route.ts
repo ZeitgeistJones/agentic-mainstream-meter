@@ -1,16 +1,10 @@
 import { NextResponse } from 'next/server'
+import { getDateChunks } from '@/lib/lanes/media'
 
 const CURRENTS_SEARCH_URL = 'https://api.currentsapi.services/v1/search'
 const TEST_KEYWORD = 'AI agent'
 
-function getStartDateBroken(): string {
-  const date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
-}
-
-function getStartDateFixed(): string {
-  const date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+function toRfc3339(date: Date): string {
   return date.toISOString().replace(/\.\d{3}Z$/, '+00:00')
 }
 
@@ -53,7 +47,7 @@ async function probe(
   }
 }
 
-/** Visit /api/media/debug in browser to diagnose Currents API 400s — no local dev tricks needed. */
+/** Visit /api/media/debug in browser to diagnose Currents API issues. */
 export async function GET() {
   const apiKey = process.env.CURRENTS_API_KEY
   if (!apiKey) {
@@ -63,35 +57,39 @@ export async function GET() {
     })
   }
 
-  const startBroken = getStartDateBroken()
-  const startFixed = getStartDateFixed()
+  const chunks = getDateChunks()
+  const firstChunk = chunks[0]
+  const thirtyDayStart = toRfc3339(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+  const now = toRfc3339(new Date())
 
   const probes = await Promise.all([
-    probe('current (keyword + space date)', {
-      keyword: TEST_KEYWORD,
-      start_date: startBroken,
-      language: 'en',
-    }, apiKey),
-    probe('fixed (keywords + RFC3339 date)', {
+    probe('broken: 30-day range (single start_date)', {
       keywords: TEST_KEYWORD,
-      start_date: startFixed,
+      start_date: thirtyDayStart,
       language: 'en',
     }, apiKey),
-    probe('keywords only (no date)', {
+    probe('broken: 30-day range (start + end)', {
+      keywords: TEST_KEYWORD,
+      start_date: thirtyDayStart,
+      end_date: now,
+      language: 'en',
+    }, apiKey),
+    probe('fixed: first 7-day chunk', {
+      keywords: TEST_KEYWORD,
+      start_date: firstChunk.start_date,
+      end_date: firstChunk.end_date,
+      language: 'en',
+    }, apiKey),
+    probe('fixed: keywords only (no date)', {
       keywords: TEST_KEYWORD,
       language: 'en',
     }, apiKey),
   ])
 
-  // #region agent log
-  fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'api/media/debug/route.ts',message:'probe results',data:{probes,startBroken,startFixed},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'H1-H2'})}).catch(()=>{});
-  // #endregion
-
   return NextResponse.json({
-    summary: 'Compare probes below. If "current" fails but "fixed" succeeds, the lane param/date format is the bug.',
+    summary: 'Currents API max date range is 7 days. Lane uses 5 chunks to cover 30 days.',
     testKeyword: TEST_KEYWORD,
-    startDateBroken: startBroken,
-    startDateFixed: startFixed,
+    dateChunks: chunks,
     probes,
   })
 }
