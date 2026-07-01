@@ -1,9 +1,14 @@
-import type { LaneResult } from '@/types'
+import type { LaneResult, LaneExample } from '@/types'
 import { normalizeMediaScore } from '@/lib/scoring'
 
 const MEDIA_KEYWORDS = ['AI agent', 'agentic AI', 'autonomous agent']
 
-async function fetchKeywordCount(keyword: string, apiKey: string): Promise<number> {
+interface CurrentsArticle {
+  title?: string
+  url?: string
+}
+
+async function fetchKeywordResults(keyword: string, apiKey: string): Promise<{ count: number; articles: CurrentsArticle[] }> {
   const params = new URLSearchParams({
     keywords: keyword,
     language: 'en',
@@ -21,16 +26,17 @@ async function fetchKeywordCount(keyword: string, apiKey: string): Promise<numbe
   }
 
   const data = await res.json()
-  console.log('[media] keyword:', keyword, 'count:', Array.isArray(data.news) ? data.news.length : 0)
-  return Array.isArray(data.news) ? data.news.length : 0
+  const articles: CurrentsArticle[] = Array.isArray(data.news) ? data.news : []
+  console.log('[media] keyword:', keyword, 'count:', articles.length)
+  return { count: articles.length, articles }
 }
 
-async function fetchKeywordSafe(keyword: string, apiKey: string): Promise<number> {
+async function fetchKeywordSafe(keyword: string, apiKey: string): Promise<{ count: number; articles: CurrentsArticle[] }> {
   try {
-    return await fetchKeywordCount(keyword, apiKey)
+    return await fetchKeywordResults(keyword, apiKey)
   } catch (err) {
     console.error('[media] failed keyword:', keyword, err)
-    return 0
+    return { count: 0, articles: [] }
   }
 }
 
@@ -54,11 +60,19 @@ export async function fetchMediaLane(): Promise<LaneResult> {
   }
 
   try {
-    const counts = await Promise.all(
+    const results = await Promise.all(
       MEDIA_KEYWORDS.map(kw => fetchKeywordSafe(kw, apiKey))
     )
-    const totalArticles = counts.reduce((a, b) => a + b, 0)
-    console.log('[media] total articles:', totalArticles, counts)
+
+    const totalArticles = results.reduce((a, r) => a + r.count, 0)
+    console.log('[media] total articles:', totalArticles)
+
+    // Pick 3 example articles from across keywords — one per keyword if possible
+    const exampleLinks: LaneExample[] = results
+      .flatMap(r => r.articles.slice(0, 1))
+      .filter(a => a.title && a.url)
+      .slice(0, 3)
+      .map(a => ({ label: a.title!, url: a.url! }))
 
     const score = normalizeMediaScore(totalArticles)
 
@@ -72,6 +86,7 @@ export async function fetchMediaLane(): Promise<LaneResult> {
       freshAt,
       sourceUrl: 'https://currentsapi.services',
       status: 'live',
+      exampleLinks,
     }
   } catch (err) {
     console.error('[media] caught error:', err)
