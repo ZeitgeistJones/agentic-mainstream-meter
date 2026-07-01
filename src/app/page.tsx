@@ -5,6 +5,7 @@ import { fetchJobsLane } from '@/lib/lanes/jobs'
 import { fetchMediaLane } from '@/lib/lanes/media'
 import { computeComposite } from '@/lib/scoring'
 import { generateNarrative } from '@/lib/narrative'
+import { getYesterdaySnapshot, getDelta } from '@/lib/snapshot'
 import { Dashboard } from '@/components/Dashboard'
 import type { CompositeScore } from '@/types'
 
@@ -25,9 +26,12 @@ async function getScore(): Promise<CompositeScore> {
 
 export default async function Home() {
   const score = await getScore()
+  const yesterday = await getYesterdaySnapshot()
+  const deltas = getDelta(score.lanes, yesterday)
+
   return (
     <Suspense fallback={<div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</div>}>
-      <Dashboard data={score} />
+      <Dashboard data={score} deltas={deltas} />
     </Suspense>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { CompositeScore, LaneResult } from '@/types'
+import type { CompositeScore, LaneDeltas, LaneResult } from '@/types'
 import { LANE_WEIGHTS } from '@/lib/scoring'
 
 const ANCHORS = [
@@ -71,7 +71,22 @@ function ScoreDial({ score }: { score: number }) {
   )
 }
 
-function LaneCard({ lane }: { lane: LaneResult }) {
+function DeltaIndicator({ delta }: { delta: number | null | undefined }) {
+  if (delta === null || delta === undefined || delta === 0) return null
+  const isUp = delta > 0
+  return (
+    <span style={{
+      fontSize: '0.75rem',
+      color: isUp ? 'var(--success)' : 'var(--error)',
+      fontWeight: 500,
+      whiteSpace: 'nowrap',
+    }}>
+      {isUp ? `↑ +${delta}` : `↓ ${delta}`}
+    </span>
+  )
+}
+
+function LaneCard({ lane, delta }: { lane: LaneResult; delta?: number | null }) {
   const meta = LANE_META[lane.id]
   const weight = Math.round((LANE_WEIGHTS[lane.id] ?? 0) * 100)
   const isError = lane.status === 'error'
@@ -104,10 +119,13 @@ function LaneCard({ lane }: { lane: LaneResult }) {
       </div>
 
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.4rem' }}>
-          <span style={{ fontSize: '1.5rem', fontFamily: 'var(--font-display)', fontStyle: 'italic', color: isError ? 'var(--text-faint)' : 'var(--text)' }}>
-            {isError ? '—' : lane.score}
-          </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.4rem', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.5rem', fontFamily: 'var(--font-display)', fontStyle: 'italic', color: isError ? 'var(--text-faint)' : 'var(--text)' }}>
+              {isError ? '—' : lane.score}
+            </span>
+            {!isError && <DeltaIndicator delta={delta} />}
+          </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{lane.rawLabel}</span>
         </div>
         <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
@@ -232,7 +250,7 @@ function formatRelative(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export function Dashboard({ data }: { data: CompositeScore }) {
+export function Dashboard({ data, deltas = {} }: { data: CompositeScore; deltas?: LaneDeltas }) {
   const { score, stage, lanes, narrative, computedAt } = data
   const liveLanes = lanes.filter(l => l.status !== 'error').length
 
@@ -332,7 +350,7 @@ export function Dashboard({ data }: { data: CompositeScore }) {
               </p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-              {lanes.map(lane => <LaneCard key={lane.id} lane={lane} />)}
+              {lanes.map(lane => <LaneCard key={lane.id} lane={lane} delta={deltas[lane.id]} />)}
             </div>
           </div>
         </section>

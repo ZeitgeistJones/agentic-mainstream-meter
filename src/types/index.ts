@@ -46,3 +46,5 @@ export interface GateStatus {
   walletAddress?: string
   clawdBalance?: bigint
 }
+
+export type LaneDeltas = Record<string, number | null>
