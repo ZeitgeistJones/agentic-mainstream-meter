@@ -2,6 +2,12 @@
 
 export type LaneId = 'wikipedia' | 'trends' | 'jobs'
 
+export interface LaneDetail {
+  title: string
+  company: string
+  url: string
+}
+
 export interface LaneResult {
   id: LaneId
   label: string
@@ -13,6 +19,7 @@ export interface LaneResult {
   sourceUrl: string
   status: 'live' | 'stale' | 'error'
   error?: string
+  details?: LaneDetail[] // optional sample of underlying items, for transparency
 }
 
 // ─── Composite score ──────────────────────────────────────────────────────────

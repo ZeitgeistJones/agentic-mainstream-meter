@@ -2,99 +2,77 @@ import type { LaneResult } from '@/types'
 import { normalizeTrendsScore } from '@/lib/scoring'
 
 // ─── Keyword basket ───────────────────────────────────────────────────────────
-// These are the search terms we track as proxies for public search demand.
-// Google Trends returns normalized 0–100 interest; we average across keywords.
-const TRENDS_KEYWORDS = [
-  'AI agent',
-  'autonomous agent AI',
-  'agentic AI',
-  'AI assistant automation',
+// Repos created/pushed in the last 30 days matching these topics/terms.
+// Used as a proxy for developer-side momentum behind agentic AI.
+const SEARCH_TERMS = [
+  'ai-agent',
+  'agentic-ai',
+  'autonomous-agent',
+  'llm-agent',
 ]
 
-const APIFY_RUN_URL = 'https://api.apify.com/v2/acts/apify~google-trends-scraper/run-sync-get-dataset-items'
+const GITHUB_SEARCH_URL = 'https://api.github.com/search/repositories'
 
-interface ApifyTrendsItem {
-  keyword?: string
-  interestOverTime?: Array<{ value: number; formattedAxisTime: string }>
-  averageInterest?: number
-}
+async function countRecentRepos(term: string): Promise<number> {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split('T')[0]
 
-async function runApifyActor(keywords: string[]): Promise<ApifyTrendsItem[]> {
-  const token = process.env.APIFY_TOKEN
-  if (!token) throw new Error('APIFY_TOKEN not set')
-
-  const actorId = process.env.APIFY_TRENDS_ACTOR_ID ?? 'apify/google-trends-scraper'
-  const url = `https://api.apify.com/v2/acts/${encodeURIComponent(actorId)}/run-sync-get-dataset-items?token=${token}&timeout=60`
+  const q = encodeURIComponent(`${term} in:topics,name,description pushed:>${since}`)
+  const url = `${GITHUB_SEARCH_URL}?q=${q}&per_page=1`
 
   const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      searchTerms: keywords,
-      timeRange: 'today 3-m',
-      geo: 'US',
-      category: 0,
-    }),
+    headers: {
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'agentic-mainstream-meter',
+    },
     next: { revalidate: 3600 },
   })
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Apify Trends error ${res.status}: ${text.slice(0, 200)}`)
+    throw new Error(`GitHub Search error ${res.status}: ${text.slice(0, 200)}`)
   }
 
-  return res.json()
-}
-
-function extractAverageInterest(items: ApifyTrendsItem[]): number {
-  const averages: number[] = []
-
-  for (const item of items) {
-    if (typeof item.averageInterest === 'number') {
-      averages.push(item.averageInterest)
-      continue
-    }
-    // Fallback: compute from interestOverTime array
-    const series = item.interestOverTime ?? []
-    if (series.length > 0) {
-      const avg = series.reduce((s, p) => s + (p.value ?? 0), 0) / series.length
-      averages.push(avg)
-    }
-  }
-
-  if (averages.length === 0) return 0
-  return averages.reduce((a, b) => a + b, 0) / averages.length
+  const data = await res.json()
+  return typeof data.total_count === 'number' ? data.total_count : 0
 }
 
 export async function fetchTrendsLane(): Promise<LaneResult> {
   const freshAt = new Date().toISOString()
 
   try {
-    const items = await runApifyActor(TRENDS_KEYWORDS)
-    const avgInterest = extractAverageInterest(items)
-    const score = normalizeTrendsScore(avgInterest)
+    // Run sequentially with small gaps — GitHub's unauthenticated rate limit
+    // is 10 requests/minute, so four calls back-to-back is safe.
+    const counts: number[] = []
+    for (const term of SEARCH_TERMS) {
+      counts.push(await countRecentRepos(term))
+    }
+
+    const totalRepos = counts.reduce((a, b) => a + b, 0)
+    const score = normalizeTrendsScore(totalRepos)
 
     return {
       id: 'trends',
-      label: 'Search momentum',
+      label: 'Developer momentum',
       score,
-      rawValue: Math.round(avgInterest),
-      rawLabel: `${Math.round(avgInterest)}/100 avg search interest`,
+      rawValue: totalRepos,
+      rawLabel: `${totalRepos.toLocaleString()} repos updated / 30d`,
       delta7d: null,
       freshAt,
-      sourceUrl: 'https://trends.google.com',
+      sourceUrl: 'https://github.com/search',
       status: 'live',
     }
   } catch (err) {
     return {
       id: 'trends',
-      label: 'Search momentum',
+      label: 'Developer momentum',
       score: 0,
       rawValue: 0,
       rawLabel: 'unavailable',
       delta7d: null,
       freshAt,
-      sourceUrl: 'https://trends.google.com',
+      sourceUrl: 'https://github.com/search',
       status: 'error',
       error: err instanceof Error ? err.message : 'Unknown error',
     }
