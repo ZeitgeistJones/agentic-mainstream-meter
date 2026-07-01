@@ -1,11 +1,11 @@
 import type { LaneResult } from '@/types'
 
 const MAINSTREAM_BASKET = [
-  'ChatGPT',
-  'Large_language_model',
-  'Artificial_intelligence',
-  'Generative_artificial_intelligence',
-  'GPT-4',
+  { article: 'ChatGPT', label: 'ChatGPT' },
+  { article: 'Large_language_model', label: 'Large language model' },
+  { article: 'Artificial_intelligence', label: 'Artificial intelligence' },
+  { article: 'Generative_artificial_intelligence', label: 'Generative AI' },
+  { article: 'GPT-4', label: 'GPT-4' },
 ]
 
 const WIKI_API = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/all-agents'
@@ -47,7 +47,7 @@ export async function fetchTrendsLane(): Promise<LaneResult> {
 
   try {
     const viewCounts = await Promise.all(
-      MAINSTREAM_BASKET.map(article => fetchArticleViews(article, start, end))
+      MAINSTREAM_BASKET.map(b => fetchArticleViews(b.article, start, end))
     )
     const totalViews = viewCounts.reduce((a, b) => a + b, 0)
     console.log('[trends] total views:', totalViews)
@@ -63,7 +63,11 @@ export async function fetchTrendsLane(): Promise<LaneResult> {
       freshAt,
       sourceUrl: 'https://wikimedia.org/api/rest_v1/',
       status: 'live',
-      examples: ['ChatGPT', 'Large language model', 'Artificial intelligence', 'Generative AI', 'GPT-4'],
+      examples: MAINSTREAM_BASKET.map(b => b.label),
+      exampleLinks: MAINSTREAM_BASKET.map(b => ({
+        label: b.label,
+        url: `https://en.wikipedia.org/wiki/${b.article}`,
+      })),
     }
   } catch (err) {
     console.error('[trends] caught error:', err)
