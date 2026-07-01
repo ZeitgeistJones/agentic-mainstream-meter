@@ -30,91 +30,8 @@ interface Article {
   source: string
 }
 
-<<<<<<< HEAD
-/** Currents API allows at most 7 days per start_date/end_date window. */
-export function getDateChunks(): { start_date: string; end_date: string }[] {
-  const msPerDay = 24 * 60 * 60 * 1000
-  const now = Date.now()
-  const chunks: { start_date: string; end_date: string }[] = []
-
-  let offsetDays = 0
-  while (offsetDays < LOOKBACK_DAYS) {
-    const chunkDays = Math.min(MAX_CHUNK_DAYS, LOOKBACK_DAYS - offsetDays)
-    const endMs = now - offsetDays * msPerDay
-    const startMs = endMs - chunkDays * msPerDay
-    chunks.push({
-      start_date: toRfc3339(new Date(startMs)),
-      end_date: toRfc3339(new Date(endMs)),
-    })
-    offsetDays += chunkDays
-  }
-
-  return chunks
-}
-
-async function fetchSearchPage(
-  keyword: string,
-  apiKey: string,
-  start_date: string,
-  end_date: string,
-  page: number,
-): Promise<{ count: number; hasMore: boolean }> {
-  const params = new URLSearchParams()
-  params.set('keywords', keyword)
-  params.set('start_date', start_date)
-  params.set('end_date', end_date)
-  params.set('language', 'en')
-  params.set('page_number', String(page))
-  params.set('page_size', String(PAGE_SIZE))
-  params.set('apiKey', apiKey)
-
-  const url = `${CURRENTS_SEARCH_URL}?${params.toString()}`
-  const res = await fetch(url, { next: { revalidate: 3600 } })
-  const text = await res.text()
-
-  if (!res.ok) {
-    console.error('[media] error for keyword:', keyword, start_date, end_date, 'page', page, res.status, text)
-    throw new Error(`Currents API error ${res.status} for "${keyword}": ${text}`)
-  }
-
-  const data = JSON.parse(text)
-  const news = Array.isArray(data.news) ? data.news : []
-  return { count: news.length, hasMore: news.length >= PAGE_SIZE }
-}
-
-async function countArticlesForKeywordInChunk(
-  keyword: string,
-  apiKey: string,
-  start_date: string,
-  end_date: string,
-): Promise<number> {
-  let total = 0
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const { count, hasMore } = await fetchSearchPage(keyword, apiKey, start_date, end_date, page)
-    total += count
-    if (!hasMore) break
-  }
-  return total
-}
-
-async function countArticlesForKeyword(keyword: string, apiKey: string): Promise<number> {
-  const chunks = getDateChunks()
-  console.log('[media] fetching keyword:', keyword, 'chunks:', chunks.length)
-
-  let total = 0
-  for (const chunk of chunks) {
-    total += await countArticlesForKeywordInChunk(keyword, apiKey, chunk.start_date, chunk.end_date)
-  }
-
-  console.log('[media] articles for', keyword, ':', total)
-  return total
-}
-
-async function countArticlesForKeywordSafe(keyword: string, apiKey: string): Promise<{ count: number; failed: boolean; error?: string }> {
-=======
 // ─── RSS fetcher ──────────────────────────────────────────────────────────────
 async function fetchRSSFeed(feed: { name: string; url: string }): Promise<Article[]> {
->>>>>>> 291b8ac1915c0a89fb03aa21a15d19c85831b4e4
   try {
     const res = await fetch(feed.url, {
       headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0' },
@@ -191,31 +108,7 @@ export async function fetchMediaLane(): Promise<LaneResult> {
   const freshAt = new Date().toISOString()
   const newsdataKey = process.env.NEWSDATA_API_KEY
 
-
   try {
-<<<<<<< HEAD
-    const results = await Promise.all(
-      MEDIA_KEYWORDS.map(keyword => countArticlesForKeywordSafe(keyword, apiKey))
-    )
-    const counts = results.map(r => r.count)
-    const failures = results.filter(r => r.failed)
-    const totalArticles = counts.reduce((a, b) => a + b, 0)
-    console.log('[media] total articles:', totalArticles)
-
-    if (failures.length === MEDIA_KEYWORDS.length) {
-      return {
-        id: 'media',
-        label: 'Media coverage',
-        score: 0,
-        rawValue: 0,
-        rawLabel: 'unavailable',
-        delta7d: null,
-        freshAt,
-        sourceUrl: 'https://currentsapi.services',
-        status: 'error',
-        error: failures[0]?.error ?? 'All keyword fetches failed',
-      }
-=======
     // Fetch RSS and NewsData in parallel
     const [rssResults, newsdataResults] = await Promise.all([
       Promise.all(RSS_FEEDS.map(fetchRSSFeed)).then(r => r.flat()),
@@ -237,7 +130,6 @@ export async function fetchMediaLane(): Promise<LaneResult> {
       seenUrls.add(article.url)
       seenTitles.add(normalizedTitle)
       qualityArticles.push(article)
->>>>>>> 291b8ac1915c0a89fb03aa21a15d19c85831b4e4
     }
 
     const totalArticles = qualityArticles.length
