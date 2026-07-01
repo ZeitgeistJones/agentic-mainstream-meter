@@ -3,9 +3,22 @@ import { normalizeMediaScore } from '@/lib/scoring'
 
 const MEDIA_KEYWORDS = ['AI agent', 'agentic AI', 'autonomous agent']
 
+// Skip build-time fetches to preserve API credits
+const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build'
+
+// Categories that are almost always noise for this dashboard
+const BLOCKED_CATEGORIES = ['sport', 'finance', 'news']
+
+// Title must contain at least one of these to be shown as an example
+const SIGNAL_PHRASES = [
+  'ai agent', 'agentic', 'autonomous agent', 'llm agent',
+  'ai assistant', 'mcp server', 'multi-agent', 'agent framework',
+]
+
 interface CurrentsArticle {
   title?: string
   url?: string
+  category?: string[]
 }
 
 async function fetchKeywordResults(keyword: string, apiKey: string): Promise<{ count: number; articles: CurrentsArticle[] }> {
@@ -59,6 +72,21 @@ export async function fetchMediaLane(): Promise<LaneResult> {
     }
   }
 
+  // Skip API call during build to preserve credits
+  if (IS_BUILD) {
+    return {
+      id: 'media',
+      label: 'Media coverage',
+      score: 0,
+      rawValue: 0,
+      rawLabel: 'loading...',
+      delta7d: null,
+      freshAt,
+      sourceUrl: 'https://currentsapi.services',
+      status: 'stale' as const,
+    }
+  }
+
   try {
     const results = await Promise.all(
       MEDIA_KEYWORDS.map(kw => fetchKeywordSafe(kw, apiKey))
@@ -67,23 +95,40 @@ export async function fetchMediaLane(): Promise<LaneResult> {
     const totalArticles = results.reduce((a, r) => a + r.count, 0)
     console.log('[media] total articles:', totalArticles)
 
-    // Pick 3 example articles from across keywords — one per keyword if possible
-    const SIGNAL_WORDS = ['agent', 'agentic', 'autonomous', 'AI', 'LLM']
     const seenUrls = new Set<string>()
+    const seenTitles = new Set<string>()
+
     const exampleLinks: LaneExample[] = results
       .flatMap(r => r.articles)
       .filter(a => {
         if (!a.title || !a.url) return false
+
+        // Dedupe by URL and normalized title
+        const normalizedTitle = a.title.toLowerCase().trim()
         if (seenUrls.has(a.url)) return false
-        const hasSignal = SIGNAL_WORDS.some(w =>
-          a.title!.toLowerCase().includes(w.toLowerCase())
-        )
+        if (seenTitles.has(normalizedTitle)) return false
+
+        // Block noisy categories
+        const cats = a.category ?? []
+        if (cats.some(c => BLOCKED_CATEGORIES.includes(c.toLowerCase()))) return false
+
+        // Must contain a meaningful signal phrase in the title
+        const titleLower = a.title.toLowerCase()
+        const hasSignal = SIGNAL_PHRASES.some(p => titleLower.includes(p))
         if (!hasSignal) return false
+
+        // Block entries with no real title (short, generic, or company-only names)
+        if (a.title.split(' ').length < 4) return false
+
         seenUrls.add(a.url)
+        seenTitles.add(normalizedTitle)
         return true
       })
       .slice(0, 3)
-      .map(a => ({ label: a.title!, url: a.url! }))
+      .map(a => ({
+        label: a.title!.length > 60 ? a.title!.slice(0, 57) + '...' : a.title!,
+        url: a.url!,
+      }))
 
     const score = normalizeMediaScore(totalArticles)
 
