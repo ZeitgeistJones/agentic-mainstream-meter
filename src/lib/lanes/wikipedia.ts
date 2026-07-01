@@ -25,24 +25,20 @@ function getDateRange(): { start: string; end: string } {
   return { start, end }
 }
 
-interface WikiItem {
-  views: number
-  timestamp: string
-}
+interface WikiItem { views: number }
 
 async function fetchArticleViews(article: string, start: string, end: string): Promise<number> {
   const url = `${WIKI_API}/${encodeURIComponent(article)}/monthly/${start}/${end}`
   console.log('[wikipedia] fetching:', url)
   const res = await fetch(url, {
     headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0 (contact@example.com)' },
-    cache: 'no-store',
+    next: { revalidate: 3600 },
   })
   if (!res.ok) {
-    console.error('[wikipedia] error for', article, res.status, await res.text())
+    console.error('[wikipedia] error for', article, res.status)
     return 0
   }
   const data = await res.json()
-  console.log('[wikipedia] result for', article, ':', JSON.stringify(data).slice(0, 200))
   const items: WikiItem[] = data.items ?? []
   return items.reduce((sum, i) => sum + i.views, 0)
 }
@@ -65,11 +61,12 @@ export async function fetchWikipediaLane(): Promise<LaneResult> {
       label: 'Public curiosity',
       score,
       rawValue: totalViews,
-      rawLabel: totalViews > 0 ? `${(totalViews / 1000).toFixed(0)}k pageviews / 30d` : '0 pageviews — check logs',
+      rawLabel: totalViews > 0 ? `${(totalViews / 1000).toFixed(0)}k pageviews / 30d` : '0 pageviews',
       delta7d: null,
       freshAt,
       sourceUrl: 'https://wikimedia.org/api/rest_v1/',
       status: 'live',
+      examples: ['AI agent', 'Autonomous agent', 'Multi-agent system', 'Intelligent agent', 'Software agent'],
     }
   } catch (err) {
     console.error('[wikipedia] caught error:', err)
