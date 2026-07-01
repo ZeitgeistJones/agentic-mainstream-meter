@@ -4,18 +4,13 @@ import { normalizeMediaScore } from '@/lib/scoring'
 const MEDIA_KEYWORDS = ['AI agent', 'agentic AI', 'autonomous agent']
 
 async function fetchKeywordCount(keyword: string, apiKey: string): Promise<number> {
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-  const startDate = thirtyDaysAgo.toISOString().slice(0, 10)
-
   const params = new URLSearchParams({
     keywords: keyword,
     language: 'en',
-    start_date: startDate,
     page_size: '20',
+    apiKey: apiKey,
   })
 
-  params.set('apiKey', apiKey)
   const res = await fetch(`https://api.currentsapi.services/v1/search?${params}`, {
     next: { revalidate: 3600 },
   })
@@ -26,6 +21,7 @@ async function fetchKeywordCount(keyword: string, apiKey: string): Promise<numbe
   }
 
   const data = await res.json()
+  console.log('[media] keyword:', keyword, 'count:', Array.isArray(data.news) ? data.news.length : 0)
   return Array.isArray(data.news) ? data.news.length : 0
 }
 
