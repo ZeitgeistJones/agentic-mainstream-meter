@@ -1,7 +1,6 @@
 import type { LaneResult, LaneExample } from '@/types'
 import { normalizeMediaScore } from '@/lib/scoring'
 
-const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build'
 
 // ─── Trusted RSS sources ──────────────────────────────────────────────────────
 const RSS_FEEDS = [
@@ -109,19 +108,6 @@ export async function fetchMediaLane(): Promise<LaneResult> {
   const freshAt = new Date().toISOString()
   const newsdataKey = process.env.NEWSDATA_API_KEY
 
-  if (IS_BUILD) {
-    return {
-      id: 'media',
-      label: 'Media coverage',
-      score: 0,
-      rawValue: 0,
-      rawLabel: 'loading...',
-      delta7d: null,
-      freshAt,
-      sourceUrl: 'https://newsdata.io',
-      status: 'stale' as const,
-    }
-  }
 
   try {
     // Fetch RSS and NewsData in parallel
