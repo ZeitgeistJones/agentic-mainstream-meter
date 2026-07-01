@@ -7,14 +7,13 @@ const MEDIA_KEYWORDS = ['AI agent', 'agentic AI', 'autonomous agent']
 
 function getStartDate(): string {
   const date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  return date.toISOString().replace(/\.\d{3}Z$/, '+00:00')
 }
 
 async function countArticlesForKeyword(keyword: string, apiKey: string): Promise<number> {
   const startDate = getStartDate()
   const params = new URLSearchParams()
-  params.set('keyword', keyword)
+  params.set('keywords', keyword)
   params.set('start_date', startDate)
   params.set('language', 'en')
   params.set('apiKey', apiKey)
@@ -24,14 +23,14 @@ async function countArticlesForKeyword(keyword: string, apiKey: string): Promise
   console.log('[media] fetching:', url.replace(apiKey, '***'))
 
   // #region agent log
-  fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:countArticlesForKeyword:pre-fetch',message:'request params',data:{keyword,startDate,paramNames:['keyword','start_date','language','apiKey'],encodedQuery:safeQuery,hypothesisId:'H1-H2-H5'},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'H1'})}).catch(()=>{});
+  fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:countArticlesForKeyword:pre-fetch',message:'request params',data:{keyword,startDate,paramNames:['keywords','start_date','language','apiKey'],encodedQuery:safeQuery,hypothesisId:'H1-H2-H5'},timestamp:Date.now(),runId:'post-fix',hypothesisId:'H1'})}).catch(()=>{});
   // #endregion
 
   const res = await fetch(url, { cache: 'no-store' })
   const text = await res.text()
 
   // #region agent log
-  fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:countArticlesForKeyword:post-fetch',message:'response received',data:{keyword,status:res.status,ok:res.ok,bodyPreview:text.slice(0,500),bodyLength:text.length,hypothesisId:'H1-H2-H3-H4-H5'},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'H2'})}).catch(()=>{});
+  fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:countArticlesForKeyword:post-fetch',message:'response received',data:{keyword,status:res.status,ok:res.ok,bodyPreview:text.slice(0,500),bodyLength:text.length,hypothesisId:'H1-H2-H3-H4-H5'},timestamp:Date.now(),runId:'post-fix',hypothesisId:'H2'})}).catch(()=>{});
   // #endregion
 
   if (!res.ok) {
@@ -50,12 +49,14 @@ async function countArticlesForKeyword(keyword: string, apiKey: string): Promise
   return news.length
 }
 
-async function countArticlesForKeywordSafe(keyword: string, apiKey: string): Promise<number> {
+async function countArticlesForKeywordSafe(keyword: string, apiKey: string): Promise<{ count: number; failed: boolean; error?: string }> {
   try {
-    return await countArticlesForKeyword(keyword, apiKey)
+    const count = await countArticlesForKeyword(keyword, apiKey)
+    return { count, failed: false }
   } catch (err) {
+    const error = err instanceof Error ? err.message : 'Unknown error'
     console.error('[media] failed keyword:', keyword, err)
-    return 0
+    return { count: 0, failed: true, error }
   }
 }
 
@@ -83,15 +84,32 @@ export async function fetchMediaLane(): Promise<LaneResult> {
     fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:fetchMediaLane:entry',message:'lane fetch start',data:{keywordCount:MEDIA_KEYWORDS.length,keywords:MEDIA_KEYWORDS,apiKeyConfigured:!!apiKey,apiKeyLength:apiKey?.length??0,hypothesisId:'H4'},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'H4'})}).catch(()=>{});
     // #endregion
 
-    const counts = await Promise.all(
+    const results = await Promise.all(
       MEDIA_KEYWORDS.map(keyword => countArticlesForKeywordSafe(keyword, apiKey))
     )
+    const counts = results.map(r => r.count)
+    const failures = results.filter(r => r.failed)
     const totalArticles = counts.reduce((a, b) => a + b, 0)
     console.log('[media] total articles:', totalArticles)
 
     // #region agent log
-    fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:fetchMediaLane:summary',message:'lane fetch complete',data:{counts,totalArticles,keywords:MEDIA_KEYWORDS,hypothesisId:'H3'},timestamp:Date.now(),runId:'pre-fix',hypothesisId:'H3'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:fetchMediaLane:summary',message:'lane fetch complete',data:{counts,totalArticles,keywords:MEDIA_KEYWORDS,failures:failures.map(f=>f.error),hypothesisId:'H3'},timestamp:Date.now(),runId:'post-fix',hypothesisId:'H3'})}).catch(()=>{});
     // #endregion
+
+    if (failures.length === MEDIA_KEYWORDS.length) {
+      return {
+        id: 'media',
+        label: 'Media coverage',
+        score: 0,
+        rawValue: 0,
+        rawLabel: 'unavailable',
+        delta7d: null,
+        freshAt,
+        sourceUrl: 'https://currentsapi.services',
+        status: 'error',
+        error: failures[0]?.error ?? 'All keyword fetches failed',
+      }
+    }
 
     const score = normalizeMediaScore(totalArticles)
 
