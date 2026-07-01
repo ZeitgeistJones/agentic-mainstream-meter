@@ -122,7 +122,7 @@ function LaneCard({ lane }: { lane: LaneResult }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-        
+        <a
           href={lane.sourceUrl}
           target="_blank"
           rel="noopener noreferrer"
@@ -146,7 +146,7 @@ function LaneCard({ lane }: { lane: LaneResult }) {
         </div>
       )}
 
-      {lane.exampleLinks && lane.exampleLinks.length > 0 && (
+     {lane.exampleLinks && lane.exampleLinks.length > 0 && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
           <p style={{ fontSize: '0.7rem', color: 'var(--text-faint)', marginBottom: '0.4rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tracked sources</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -175,7 +175,6 @@ function LaneCard({ lane }: { lane: LaneResult }) {
     </article>
   )
 }
-
 function AnchorBadge({ label, score, year }: { label: string; score: number; year: number }) {
   return (
     <div style={{
