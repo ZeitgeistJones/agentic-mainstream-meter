@@ -68,9 +68,20 @@ export async function fetchMediaLane(): Promise<LaneResult> {
     console.log('[media] total articles:', totalArticles)
 
     // Pick 3 example articles from across keywords — one per keyword if possible
+    const SIGNAL_WORDS = ['agent', 'agentic', 'autonomous', 'AI', 'LLM']
+    const seenUrls = new Set<string>()
     const exampleLinks: LaneExample[] = results
-      .flatMap(r => r.articles.slice(0, 1))
-      .filter(a => a.title && a.url)
+      .flatMap(r => r.articles)
+      .filter(a => {
+        if (!a.title || !a.url) return false
+        if (seenUrls.has(a.url)) return false
+        const hasSignal = SIGNAL_WORDS.some(w =>
+          a.title!.toLowerCase().includes(w.toLowerCase())
+        )
+        if (!hasSignal) return false
+        seenUrls.add(a.url)
+        return true
+      })
       .slice(0, 3)
       .map(a => ({ label: a.title!, url: a.url! }))
 
