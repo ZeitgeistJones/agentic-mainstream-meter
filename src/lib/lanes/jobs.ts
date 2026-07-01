@@ -1,72 +1,57 @@
 import type { LaneResult } from '@/types'
 import { normalizeJobsScore } from '@/lib/scoring'
 
-const AGENT_ALMANAC_URL = 'https://agentalmanac.org/api/v1/mcp/servers'
-
-function extractServerCount(data: unknown): number | null {
-  if (data === null || typeof data !== 'object') return null
-
-  const record = data as Record<string, unknown>
-
-  if (typeof record.total === 'number') return record.total
-  if (typeof record.count === 'number') return record.count
-
-  if (Array.isArray(data)) return data.length
-
-  if (Array.isArray(record.servers)) return record.servers.length
-  if (Array.isArray(record.data)) return record.data.length
-  if (Array.isArray(record.items)) return record.items.length
-
-  return null
+interface AlmanacServer {
+  name?: string
+  id?: string
 }
 
 export async function fetchJobsLane(): Promise<LaneResult> {
   const freshAt = new Date().toISOString()
 
   try {
-    console.log('[jobs] fetching:', AGENT_ALMANAC_URL)
-    const res = await fetch(AGENT_ALMANAC_URL, {
-      headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0 (contact@example.com)' },
-      cache: 'no-store',
+    console.log('[jobs] fetching: https://agentalmanac.org/api/v1/mcp/servers')
+    const res = await fetch('https://agentalmanac.org/api/v1/mcp/servers', {
+      headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0' },
+      next: { revalidate: 3600 },
     })
 
     if (!res.ok) {
-      const text = await res.text()
-      throw new Error(`Agent Almanac error ${res.status}: ${text.slice(0, 200)}`)
+      throw new Error(`Agent Almanac error ${res.status}`)
     }
 
-    const data: unknown = await res.json()
-    const totalServers = extractServerCount(data)
+    const data = await res.json()
+    console.log('[jobs] raw response shape:', JSON.stringify(data).slice(0, 200))
 
-    if (totalServers === null) {
-      console.error('[jobs] unexpected response shape:', JSON.stringify(data).slice(0, 2000))
-      return {
-        id: 'jobs',
-        label: 'MCP ecosystem size',
-        score: 0,
-        rawValue: 0,
-        rawLabel: 'unavailable',
-        delta7d: null,
-        freshAt,
-        sourceUrl: 'https://agentalmanac.org',
-        status: 'error',
-        error: `Unexpected response shape: ${JSON.stringify(data).slice(0, 500)}`,
-      }
-    }
+    const servers: AlmanacServer[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data.servers)
+      ? data.servers
+      : Array.isArray(data.data)
+      ? data.data
+      : []
 
-    console.log('[jobs] total MCP servers:', totalServers)
-    const score = normalizeJobsScore(totalServers)
+    const count = typeof data.total === 'number'
+      ? data.total
+      : typeof data.count === 'number'
+      ? data.count
+      : servers.length
+
+    console.log('[jobs] MCP server count:', count)
+    const score = normalizeJobsScore(count)
+    const examples = servers.slice(0, 5).map(s => s.name ?? s.id ?? 'unknown')
 
     return {
       id: 'jobs',
       label: 'MCP ecosystem size',
       score,
-      rawValue: totalServers,
-      rawLabel: `${totalServers.toLocaleString()} MCP servers indexed`,
+      rawValue: count,
+      rawLabel: `${count.toLocaleString()} MCP servers indexed`,
       delta7d: null,
       freshAt,
       sourceUrl: 'https://agentalmanac.org',
       status: 'live',
+      examples,
     }
   } catch (err) {
     console.error('[jobs] caught error:', err)
