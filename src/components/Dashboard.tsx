@@ -4,14 +4,12 @@ import { useState } from 'react'
 import type { CompositeScore, LaneResult } from '@/types'
 import { LANE_WEIGHTS } from '@/lib/scoring'
 
-// ─── Anchors ─────────────────────────────────────────────────────────────────
 const ANCHORS = [
   { label: 'LLMs at this stage', score: 41, year: 2022 },
   { label: 'Blockchain peak', score: 72, year: 2021 },
   { label: 'Smartphones at mass market', score: 84, year: 2013 },
 ]
 
-// ─── Lane metadata ────────────────────────────────────────────────────────────
 const LANE_META: Record<string, { icon: string; measures: string; doesNotMeasure: string }> = {
   wikipedia: {
     icon: '◎',
@@ -35,12 +33,9 @@ const LANE_META: Record<string, { icon: string; measures: string; doesNotMeasure
   },
 }
 
-// ─── Components ───────────────────────────────────────────────────────────────
-
 function ScoreDial({ score }: { score: number }) {
   const circumference = 2 * Math.PI * 54
   const offset = circumference - (score / 100) * circumference
-
   return (
     <div style={{ position: 'relative', width: 140, height: 140, flexShrink: 0 }}>
       <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden>
@@ -91,7 +86,6 @@ function LaneCard({ lane }: { lane: LaneResult }) {
       flexDirection: 'column',
       gap: '0.875rem',
     }}>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 600 }}>{meta?.icon}</span>
@@ -109,7 +103,6 @@ function LaneCard({ lane }: { lane: LaneResult }) {
         }}>{weight}% weight</span>
       </div>
 
-      {/* Score bar */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.4rem' }}>
           <span style={{ fontSize: '1.5rem', fontFamily: 'var(--font-display)', fontStyle: 'italic', color: isError ? 'var(--text-faint)' : 'var(--text)' }}>
@@ -128,7 +121,6 @@ function LaneCard({ lane }: { lane: LaneResult }) {
         </div>
       </div>
 
-      {/* Source + freshness */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
         <a
           href={lane.sourceUrl}
@@ -143,7 +135,6 @@ function LaneCard({ lane }: { lane: LaneResult }) {
         </span>
       </div>
 
-      {/* Methodology note */}
       {meta && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
           <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -155,31 +146,30 @@ function LaneCard({ lane }: { lane: LaneResult }) {
         </div>
       )}
 
-      {/* Sample details — lets you verify what's actually being counted */}
-      {lane.details && lane.details.length > 0 && (
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-          <p style={{ fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-faint)', fontWeight: 600 }}>
-            Sample of what&apos;s counted
-          </p>
-          {lane.details.map((d, i) => (
-            <a
-              key={i}
-              href={d.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                fontSize: '0.74rem',
-                color: 'var(--text-muted)',
-                textDecoration: 'none',
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: '0.5rem',
-              }}
-            >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
-              <span style={{ color: 'var(--text-faint)', flexShrink: 0 }}>{d.company}</span>
-            </a>
-          ))}
+      {lane.exampleLinks && lane.exampleLinks.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
+          <p style={{ fontSize: '0.7rem', color: 'var(--text-faint)', marginBottom: '0.4rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tracked sources</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            {lane.exampleLinks.map((ex, i) => (
+              <a
+                key={i}
+                href={ex.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: '0.72rem',
+                  color: 'var(--accent)',
+                  textDecoration: 'none',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  display: 'block',
+                }}
+              >
+                {ex.label} ↗
+              </a>
+            ))}
+          </div>
         </div>
       )}
     </article>
@@ -232,8 +222,6 @@ function ThemeToggle() {
   )
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function formatRelative(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60000)
@@ -244,16 +232,12 @@ function formatRelative(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
-
 export function Dashboard({ data }: { data: CompositeScore }) {
   const { score, stage, lanes, narrative, computedAt } = data
   const liveLanes = lanes.filter(l => l.status !== 'error').length
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-
-      {/* Header */}
       <header style={{
         position: 'sticky', top: 0, zIndex: 10,
         background: 'color-mix(in srgb, var(--bg) 90%, transparent)',
@@ -279,13 +263,9 @@ export function Dashboard({ data }: { data: CompositeScore }) {
       </header>
 
       <main style={{ flex: 1 }}>
-
-        {/* Hero */}
         <section style={{ padding: 'clamp(3rem, 7vw, 5rem) 0 3rem' }}>
           <div className="container">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '3rem', alignItems: 'center' }}>
-
-              {/* Score block */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <div>
                   <p style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-faint)', marginBottom: '0.5rem', fontWeight: 600 }}>
@@ -311,7 +291,6 @@ export function Dashboard({ data }: { data: CompositeScore }) {
                   </div>
                 </div>
 
-                {/* Narrative */}
                 {narrative && (
                   <p style={{
                     fontSize: '0.9rem',
@@ -326,7 +305,6 @@ export function Dashboard({ data }: { data: CompositeScore }) {
                 )}
               </div>
 
-              {/* Anchors */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <p style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-faint)', fontWeight: 600, marginBottom: '0.25rem' }}>
                   Historical anchors
@@ -340,10 +318,8 @@ export function Dashboard({ data }: { data: CompositeScore }) {
           </div>
         </section>
 
-        {/* Divider */}
         <div className="container"><div style={{ height: 1, background: 'var(--border)' }} /></div>
 
-        {/* Lane cards */}
         <section style={{ padding: '3rem 0' }}>
           <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
@@ -355,49 +331,29 @@ export function Dashboard({ data }: { data: CompositeScore }) {
                 Each lane measures a different signal of adoption. The composite score is a weighted blend with a freshness discount applied to stale data.
               </p>
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
               {lanes.map(lane => <LaneCard key={lane.id} lane={lane} />)}
             </div>
           </div>
         </section>
 
-        {/* Divider */}
         <div className="container"><div style={{ height: 1, background: 'var(--border)' }} /></div>
 
-        {/* Methodology */}
         <section style={{ padding: '3rem 0' }}>
           <div className="container" style={{ maxWidth: 720 }}>
             <p style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-faint)', fontWeight: 600, marginBottom: '0.75rem' }}>Methodology</p>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 600, letterSpacing: '-0.02em', marginBottom: '1.25rem' }}>How this score is computed.</h2>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <MethodRow
-                label="Composite formula"
-                value="0.30 × wikipedia + 0.25 × trends + 0.25 × jobs + 0.20 × media"
-              />
-              <MethodRow
-                label="Normalization"
-                value="Each lane is normalized against a rolling baseline. Baselines are updated periodically as real data accumulates."
-              />
-              <MethodRow
-                label="Freshness discount"
-                value="Data older than 24 hours receives an 85% confidence multiplier."
-              />
-              <MethodRow
-                label="Update cadence"
-                value="Scores recompute every hour. Raw data is cached at the source level."
-              />
-              <MethodRow
-                label="What this is not"
-                value="This score does not measure actual AI agent usage, revenue, retention, or enterprise deployment depth. It measures public signals that correlate with adoption."
-              />
+              <MethodRow label="Composite formula" value="0.30 × wikipedia + 0.25 × trends + 0.25 × MCP ecosystem + 0.20 × media" />
+              <MethodRow label="Normalization" value="Each lane is normalized against a rolling baseline. Baselines are updated periodically as real data accumulates." />
+              <MethodRow label="Freshness discount" value="Data older than 24 hours receives an 85% confidence multiplier." />
+              <MethodRow label="Update cadence" value="Scores recompute every hour. Raw data is cached at the source level." />
+              <MethodRow label="What this is not" value="This score does not measure actual AI agent usage, revenue, retention, or enterprise deployment depth. It measures public signals that correlate with adoption." />
             </div>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
       <footer style={{ borderTop: '1px solid var(--border)', padding: '1.5rem 0' }}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <p style={{ fontSize: '0.72rem', color: 'var(--text-faint)' }}>
