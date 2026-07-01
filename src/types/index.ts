@@ -1,6 +1,9 @@
-// ─── Lane types ──────────────────────────────────────────────────────────────
-
 export type LaneId = 'wikipedia' | 'trends' | 'jobs' | 'media'
+
+export interface LaneExample {
+  label: string
+  url: string
+}
 
 export interface LaneResult {
   id: LaneId
@@ -14,9 +17,8 @@ export interface LaneResult {
   status: 'live' | 'stale' | 'error'
   error?: string
   examples?: string[]
+  exampleLinks?: LaneExample[]
 }
-
-// ─── Composite score ──────────────────────────────────────────────────────────
 
 export interface AdoptionStage {
   label: string
@@ -32,15 +34,11 @@ export interface CompositeScore {
   narrative: string
 }
 
-// ─── Anchor baselines ─────────────────────────────────────────────────────────
-
 export interface Anchor {
   label: string
   score: number
   year: number
 }
-
-// ─── Auth / gate (stubbed for CLAWDGate) ─────────────────────────────────────
 
 export interface GateStatus {
   enabled: boolean
