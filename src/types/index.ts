@@ -1,6 +1,6 @@
 // ─── Lane types ──────────────────────────────────────────────────────────────
 
-export type LaneId = 'wikipedia' | 'trends' | 'jobs'
+export type LaneId = 'wikipedia' | 'trends' | 'jobs' | 'media'
 
 export interface LaneDetail {
   title: string

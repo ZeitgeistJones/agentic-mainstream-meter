@@ -20,13 +20,18 @@ const LANE_META: Record<string, { icon: string; measures: string; doesNotMeasure
   },
   trends: {
     icon: '◈',
-    measures: 'Developer momentum and build activity',
-    doesNotMeasure: 'Exact market size or real usage counts',
+    measures: 'Mainstream AI Wikipedia pageviews as a proxy for broader public awareness',
+    doesNotMeasure: 'Direct search query data or Google Trends scores',
   },
   jobs: {
     icon: '◆',
-    measures: 'Enterprise commitment and organizational intent',
-    doesNotMeasure: 'Confirmed deployments or production depth',
+    measures: 'Number of active MCP servers indexed in the Agent Almanac — a proxy for real agentic infrastructure supply',
+    doesNotMeasure: 'Actual agent usage, call volume, or revenue',
+  },
+  media: {
+    icon: '◇',
+    measures: 'Volume of mainstream press articles mentioning AI agents — a proxy for public narrative momentum',
+    doesNotMeasure: 'Article sentiment, accuracy, or reach',
   },
 }
 
@@ -302,7 +307,7 @@ export function Dashboard({ data }: { data: CompositeScore }) {
                   <ScoreDial score={score} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', maxWidth: '28ch', lineHeight: 1.55 }}>{stage.description}</p>
-                    <p style={{ fontSize: '0.72rem', color: 'var(--text-faint)' }}>{liveLanes} of 3 lanes live</p>
+                    <p style={{ fontSize: '0.72rem', color: 'var(--text-faint)' }}>{liveLanes} of 4 lanes live</p>
                   </div>
                 </div>
 
@@ -369,7 +374,7 @@ export function Dashboard({ data }: { data: CompositeScore }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <MethodRow
                 label="Composite formula"
-                value="0.35 × wikipedia + 0.35 × trends + 0.30 × jobs"
+                value="0.30 × wikipedia + 0.25 × trends + 0.25 × jobs + 0.20 × media"
               />
               <MethodRow
                 label="Normalization"
@@ -400,8 +405,8 @@ export function Dashboard({ data }: { data: CompositeScore }) {
           </p>
           <div style={{ display: 'flex', gap: '1.25rem' }}>
             <a href="https://wikimedia.org/api/rest_v1/" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--text-faint)', textDecoration: 'none' }}>Wikimedia API</a>
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--text-faint)', textDecoration: 'none' }}>GitHub Search API</a>
-            <a href="https://remotive.com" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--text-faint)', textDecoration: 'none' }}>Remotive</a>
+            <a href="https://agentalmanac.org" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--text-faint)', textDecoration: 'none' }}>Agent Almanac</a>
+            <a href="https://currentsapi.services" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.72rem', color: 'var(--text-faint)', textDecoration: 'none' }}>Currents API</a>
           </div>
         </div>
       </footer>

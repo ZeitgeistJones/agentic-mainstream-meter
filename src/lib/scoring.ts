@@ -2,9 +2,10 @@ import type { LaneResult, CompositeScore, AdoptionStage } from '@/types'
 
 // ─── Weights (must sum to 1.0) ────────────────────────────────────────────────
 export const LANE_WEIGHTS: Record<string, number> = {
-  wikipedia: 0.35,
-  trends: 0.35,
-  jobs: 0.30,
+  wikipedia: 0.30,
+  trends: 0.25,
+  jobs: 0.25, // jobs = MCP ecosystem size lane
+  media: 0.20,
 }
 
 // ─── Freshness discount ───────────────────────────────────────────────────────
@@ -97,20 +98,28 @@ export function normalizeWikipediaScore(totalViews: number): number {
 }
 
 // ─── Trends normalization ─────────────────────────────────────────────────────
-// Apify returns interest 0–100; we remap against a baseline average
-// Baseline: 40 average interest = score of 50
-const TRENDS_BASELINE = 40
+// Baseline: 20M monthly pageviews for the mainstream AI basket = score of 50
+const TRENDS_BASELINE = 20_000_000
 
-export function normalizeTrendsScore(averageInterest: number): number {
-  const raw = (averageInterest / TRENDS_BASELINE) * 50
+export function normalizeTrendsScore(totalViews: number): number {
+  const raw = (totalViews / TRENDS_BASELINE) * 50
   return Math.min(100, Math.max(0, Math.round(raw)))
 }
 
 // ─── Jobs normalization ───────────────────────────────────────────────────────
-// Baseline: 5000 postings/month for the keyword basket = score of 50
-const JOBS_BASELINE = 5_000
+// Baseline: 500 MCP servers indexed = score of 50
+const JOBS_BASELINE = 500
 
-export function normalizeJobsScore(totalPostings: number): number {
-  const raw = (totalPostings / JOBS_BASELINE) * 50
+export function normalizeJobsScore(totalServers: number): number {
+  const raw = (totalServers / JOBS_BASELINE) * 50
+  return Math.min(100, Math.max(0, Math.round(raw)))
+}
+
+// ─── Media normalization ──────────────────────────────────────────────────────
+// Baseline: 300 articles/month for the keyword basket = score of 50
+const MEDIA_BASELINE = 300
+
+export function normalizeMediaScore(totalArticles: number): number {
+  const raw = (totalArticles / MEDIA_BASELINE) * 50
   return Math.min(100, Math.max(0, Math.round(raw)))
 }

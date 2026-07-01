@@ -1,78 +1,89 @@
 import type { LaneResult } from '@/types'
 import { normalizeTrendsScore } from '@/lib/scoring'
 
-// ─── Keyword basket ───────────────────────────────────────────────────────────
-// Repos created/pushed in the last 30 days matching these topics/terms.
-// Used as a proxy for developer-side momentum behind agentic AI.
-const SEARCH_TERMS = [
-  'ai-agent',
-  'agentic-ai',
-  'autonomous-agent',
-  'llm-agent',
+export const TRENDS_BASKET = [
+  'ChatGPT',
+  'Large_language_model',
+  'Artificial_intelligence',
+  'Generative_artificial_intelligence',
+  'GPT-4',
 ]
 
-const GITHUB_SEARCH_URL = 'https://api.github.com/search/repositories'
+const WIKI_API = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/all-agents'
 
-async function countRecentRepos(term: string): Promise<number> {
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split('T')[0]
+function getDateRange(): { start: string; end: string } {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  const endYear = month >= 1 ? year : year - 1
+  const endMonth = month >= 1 ? month : 12
+  const startYear = month >= 3 ? year : year - 1
+  const startMonth = month >= 3 ? month - 2 : 12 + (month - 2)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const start = `${startYear}${pad(startMonth)}0100`
+  const end = `${endYear}${pad(endMonth)}0100`
+  return { start, end }
+}
 
-  const q = encodeURIComponent(`${term} in:topics,name,description pushed:>${since}`)
-  const url = `${GITHUB_SEARCH_URL}?q=${q}&per_page=1`
+interface WikiItem {
+  views: number
+  timestamp: string
+}
 
+async function fetchArticleViews(article: string, start: string, end: string): Promise<number> {
+  const url = `${WIKI_API}/${encodeURIComponent(article)}/monthly/${start}/${end}`
+  console.log('[trends] fetching:', url)
   const res = await fetch(url, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'User-Agent': 'agentic-mainstream-meter',
-    },
-    next: { revalidate: 3600 },
+    headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0 (contact@example.com)' },
+    cache: 'no-store',
   })
-
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`GitHub Search error ${res.status}: ${text.slice(0, 200)}`)
+    console.error('[trends] error for', article, res.status, await res.text())
+    return 0
   }
-
   const data = await res.json()
-  return typeof data.total_count === 'number' ? data.total_count : 0
+  console.log('[trends] result for', article, ':', JSON.stringify(data).slice(0, 200))
+  const items: WikiItem[] = data.items ?? []
+  return items.reduce((sum, i) => sum + i.views, 0)
 }
 
 export async function fetchTrendsLane(): Promise<LaneResult> {
+  const { start, end } = getDateRange()
+  console.log('[trends] date range:', start, '->', end)
   const freshAt = new Date().toISOString()
 
   try {
-    // Run sequentially with small gaps — GitHub's unauthenticated rate limit
-    // is 10 requests/minute, so four calls back-to-back is safe.
-    const counts: number[] = []
-    for (const term of SEARCH_TERMS) {
-      counts.push(await countRecentRepos(term))
-    }
-
-    const totalRepos = counts.reduce((a, b) => a + b, 0)
-    const score = normalizeTrendsScore(totalRepos)
+    const viewCounts = await Promise.all(
+      TRENDS_BASKET.map(article => fetchArticleViews(article, start, end))
+    )
+    const totalViews = viewCounts.reduce((a, b) => a + b, 0)
+    console.log('[trends] total views:', totalViews)
+    const score = normalizeTrendsScore(totalViews)
 
     return {
       id: 'trends',
-      label: 'Developer momentum',
+      label: 'Mainstream awareness',
       score,
-      rawValue: totalRepos,
-      rawLabel: `${totalRepos.toLocaleString()} repos updated / 30d`,
+      rawValue: totalViews,
+      rawLabel: totalViews > 0
+        ? `${(totalViews / 1_000_000).toFixed(1)}M mainstream AI pageviews / 30d`
+        : '0 pageviews — check logs',
       delta7d: null,
       freshAt,
-      sourceUrl: 'https://github.com/search',
+      sourceUrl: 'https://wikimedia.org/api/rest_v1/',
       status: 'live',
     }
   } catch (err) {
+    console.error('[trends] caught error:', err)
     return {
       id: 'trends',
-      label: 'Developer momentum',
+      label: 'Mainstream awareness',
       score: 0,
       rawValue: 0,
       rawLabel: 'unavailable',
       delta7d: null,
       freshAt,
-      sourceUrl: 'https://github.com/search',
+      sourceUrl: 'https://wikimedia.org/api/rest_v1/',
       status: 'error',
       error: err instanceof Error ? err.message : 'Unknown error',
     }

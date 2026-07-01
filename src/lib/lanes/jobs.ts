@@ -1,82 +1,84 @@
 import type { LaneResult } from '@/types'
 import { normalizeJobsScore } from '@/lib/scoring'
 
-const JOBS_KEYWORDS = [
-  'AI agent',
-  'agentic AI',
-  'autonomous AI',
-  'LLM agent',
-]
+const AGENT_ALMANAC_URL = 'https://agentalmanac.org/api/v1/mcp/servers'
 
-const REMOTIVE_URL = 'https://remotive.com/api/remote-jobs'
+function extractServerCount(data: unknown): number | null {
+  if (data === null || typeof data !== 'object') return null
 
-interface RemotiveJob {
-  id: number
-  title: string
-  company_name: string
-  url: string
-  publication_date?: string
-}
+  const record = data as Record<string, unknown>
 
-async function fetchKeywordJobs(keyword: string): Promise<RemotiveJob[]> {
-  const url = `${REMOTIVE_URL}?search=${encodeURIComponent(keyword)}`
+  if (typeof record.total === 'number') return record.total
+  if (typeof record.count === 'number') return record.count
 
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'agentic-mainstream-meter' },
-    next: { revalidate: 3600 },
-  })
+  if (Array.isArray(data)) return data.length
 
-  if (!res.ok) return []
-  const data = await res.json()
-  return Array.isArray(data.jobs) ? data.jobs : []
+  if (Array.isArray(record.servers)) return record.servers.length
+  if (Array.isArray(record.data)) return record.data.length
+  if (Array.isArray(record.items)) return record.items.length
+
+  return null
 }
 
 export async function fetchJobsLane(): Promise<LaneResult> {
   const freshAt = new Date().toISOString()
 
   try {
-    const results = await Promise.all(JOBS_KEYWORDS.map(fetchKeywordJobs))
+    console.log('[jobs] fetching:', AGENT_ALMANAC_URL)
+    const res = await fetch(AGENT_ALMANAC_URL, {
+      headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0 (contact@example.com)' },
+      cache: 'no-store',
+    })
 
-    const seen = new Map<number, RemotiveJob>()
-    for (const jobs of results) {
-      for (const job of jobs) seen.set(job.id, job)
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`Agent Almanac error ${res.status}: ${text.slice(0, 200)}`)
     }
 
-    const allJobs = Array.from(seen.values())
-    const totalPostings = allJobs.length
-    const score = normalizeJobsScore(totalPostings)
+    const data: unknown = await res.json()
+    const totalServers = extractServerCount(data)
 
-    const sample = allJobs
-      .sort((a, b) => (b.publication_date ?? '').localeCompare(a.publication_date ?? ''))
-      .slice(0, 5)
-      .map(job => ({
-        title: job.title,
-        company: job.company_name,
-        url: job.url,
-      }))
+    if (totalServers === null) {
+      console.error('[jobs] unexpected response shape:', JSON.stringify(data).slice(0, 2000))
+      return {
+        id: 'jobs',
+        label: 'MCP ecosystem size',
+        score: 0,
+        rawValue: 0,
+        rawLabel: 'unavailable',
+        delta7d: null,
+        freshAt,
+        sourceUrl: 'https://agentalmanac.org',
+        status: 'error',
+        error: `Unexpected response shape: ${JSON.stringify(data).slice(0, 500)}`,
+      }
+    }
+
+    console.log('[jobs] total MCP servers:', totalServers)
+    const score = normalizeJobsScore(totalServers)
 
     return {
       id: 'jobs',
-      label: 'Employer demand',
+      label: 'MCP ecosystem size',
       score,
-      rawValue: totalPostings,
-      rawLabel: `${totalPostings.toLocaleString()} postings tracked`,
+      rawValue: totalServers,
+      rawLabel: `${totalServers.toLocaleString()} MCP servers indexed`,
       delta7d: null,
       freshAt,
-      sourceUrl: 'https://remotive.com',
+      sourceUrl: 'https://agentalmanac.org',
       status: 'live',
-      details: sample,
     }
   } catch (err) {
+    console.error('[jobs] caught error:', err)
     return {
       id: 'jobs',
-      label: 'Employer demand',
+      label: 'MCP ecosystem size',
       score: 0,
       rawValue: 0,
       rawLabel: 'unavailable',
       delta7d: null,
       freshAt,
-      sourceUrl: 'https://remotive.com',
+      sourceUrl: 'https://agentalmanac.org',
       status: 'error',
       error: err instanceof Error ? err.message : 'Unknown error',
     }
