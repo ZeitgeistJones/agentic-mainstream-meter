@@ -1,78 +1,114 @@
 import type { LaneResult, LaneExample } from '@/types'
 import { normalizeMediaScore } from '@/lib/scoring'
 
-const MEDIA_KEYWORDS = ['AI agent', 'agentic AI', 'autonomous agent']
-
-// Skip build-time fetches to preserve API credits
 const IS_BUILD = process.env.NEXT_PHASE === 'phase-production-build'
 
-// Categories that are almost always noise for this dashboard
-const BLOCKED_CATEGORIES = ['sport', 'finance', 'news']
-
-// Title must contain at least one of these to be shown as an example
-const SIGNAL_PHRASES = [
-  'ai agent', 'agentic', 'autonomous agent', 'llm agent',
-  'ai assistant', 'mcp server', 'multi-agent', 'agent framework',
+// ─── Trusted RSS sources ──────────────────────────────────────────────────────
+const RSS_FEEDS = [
+  { name: 'TechCrunch', url: 'https://techcrunch.com/feed/' },
+  { name: 'VentureBeat', url: 'https://venturebeat.com/feed/' },
+  { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/technology-lab' },
+  { name: 'Wired', url: 'https://www.wired.com/feed/rss' },
+  { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml' },
+  { name: 'MIT Tech Review', url: 'https://www.technologyreview.com/feed/' },
 ]
 
-interface CurrentsArticle {
-  title?: string
-  url?: string
-  category?: string[]
+const KEYWORDS = ['ai agent', 'agentic', 'autonomous agent', 'llm agent', 'multi-agent']
+
+const SIGNAL_PHRASES = [
+  'ai agent', 'agentic', 'autonomous agent', 'llm agent',
+  'multi-agent', 'agent framework', 'mcp server', 'ai assistant',
+]
+
+const BLOCKED_TITLE_WORDS = [
+  'stock', 'nba', 'nfl', 'trade', 'draft', 'betting', 'etf',
+  'earnings', 'travel plan', 'real estate',
+]
+
+interface Article {
+  title: string
+  url: string
+  source: string
 }
 
-async function fetchKeywordResults(keyword: string, apiKey: string): Promise<{ count: number; articles: CurrentsArticle[] }> {
-  const params = new URLSearchParams({
-    keywords: keyword,
-    language: 'en',
-    page_size: '20',
-    apiKey: apiKey,
-  })
-
-  const res = await fetch(`https://api.currentsapi.services/v1/search?${params}`, {
-    next: { revalidate: 3600 },
-  })
-
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Currents API error ${res.status} for "${keyword}": ${text.slice(0, 100)}`)
-  }
-
-  const data = await res.json()
-  const articles: CurrentsArticle[] = Array.isArray(data.news) ? data.news : []
-  console.log('[media] keyword:', keyword, 'count:', articles.length)
-  return { count: articles.length, articles }
-}
-
-async function fetchKeywordSafe(keyword: string, apiKey: string): Promise<{ count: number; articles: CurrentsArticle[] }> {
+// ─── RSS fetcher ──────────────────────────────────────────────────────────────
+async function fetchRSSFeed(feed: { name: string; url: string }): Promise<Article[]> {
   try {
-    return await fetchKeywordResults(keyword, apiKey)
-  } catch (err) {
-    console.error('[media] failed keyword:', keyword, err)
-    return { count: 0, articles: [] }
+    const res = await fetch(feed.url, {
+      headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0' },
+      next: { revalidate: 3600 },
+    })
+    if (!res.ok) return []
+    const xml = await res.text()
+
+    // Simple XML parsing for <item> blocks
+    const items = xml.match(/<item>([\s\S]*?)<\/item>/g) ?? []
+    const articles: Article[] = []
+
+    for (const item of items) {
+      const titleMatch = item.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/)
+      const linkMatch = item.match(/<link>(.*?)<\/link>/) ?? item.match(/<guid[^>]*>(https?:\/\/[^<]+)<\/guid>/)
+      const title = titleMatch?.[1]?.trim()
+      const url = linkMatch?.[1]?.trim()
+      if (title && url) articles.push({ title, url, source: feed.name })
+    }
+
+    return articles
+  } catch {
+    return []
   }
+}
+
+// ─── NewsData.io fetcher ──────────────────────────────────────────────────────
+async function fetchNewsData(apiKey: string): Promise<Article[]> {
+  try {
+    const params = new URLSearchParams({
+      apikey: apiKey,
+      q: 'AI agent OR agentic AI OR autonomous agent',
+      language: 'en',
+      category: 'technology,business,science',
+    })
+
+    const res = await fetch(`https://newsdata.io/api/1/news?${params}`, {
+      next: { revalidate: 3600 },
+    })
+
+    if (!res.ok) return []
+    const data = await res.json()
+    const results = Array.isArray(data.results) ? data.results : []
+
+    return results
+      .filter((r: { title?: string; link?: string }) => r.title && r.link)
+      .map((r: { title: string; link: string; source_id?: string }) => ({
+        title: r.title,
+        url: r.link,
+        source: r.source_id ?? 'NewsData',
+      }))
+  } catch {
+    return []
+  }
+}
+
+// ─── Article filter ───────────────────────────────────────────────────────────
+function isQualityArticle(article: Article): boolean {
+  const titleLower = article.title.toLowerCase()
+
+  // Must have signal phrase
+  if (!SIGNAL_PHRASES.some(p => titleLower.includes(p))) return false
+
+  // Must not have blocked words
+  if (BLOCKED_TITLE_WORDS.some(w => titleLower.includes(w))) return false
+
+  // Must be a real headline (at least 5 words)
+  if (article.title.split(' ').length < 5) return false
+
+  return true
 }
 
 export async function fetchMediaLane(): Promise<LaneResult> {
   const freshAt = new Date().toISOString()
-  const apiKey = process.env.CURRENTS_API_KEY
+  const newsdataKey = process.env.NEWSDATA_API_KEY
 
-  if (!apiKey) {
-    return {
-      id: 'media',
-      label: 'Media coverage',
-      score: 0,
-      rawValue: 0,
-      rawLabel: 'unavailable',
-      delta7d: null,
-      freshAt,
-      sourceUrl: 'https://currentsapi.services',
-      status: 'error',
-      error: 'CURRENTS_API_KEY not configured',
-    }
-  }
-
-  // Skip API call during build to preserve credits
   if (IS_BUILD) {
     return {
       id: 'media',
@@ -82,53 +118,42 @@ export async function fetchMediaLane(): Promise<LaneResult> {
       rawLabel: 'loading...',
       delta7d: null,
       freshAt,
-      sourceUrl: 'https://currentsapi.services',
+      sourceUrl: 'https://newsdata.io',
       status: 'stale' as const,
     }
   }
 
   try {
-    const results = await Promise.all(
-      MEDIA_KEYWORDS.map(kw => fetchKeywordSafe(kw, apiKey))
-    )
+    // Fetch RSS and NewsData in parallel
+    const [rssResults, newsdataResults] = await Promise.all([
+      Promise.all(RSS_FEEDS.map(fetchRSSFeed)).then(r => r.flat()),
+      newsdataKey ? fetchNewsData(newsdataKey) : Promise.resolve([]),
+    ])
 
-    const totalArticles = results.reduce((a, r) => a + r.count, 0)
-    console.log('[media] total articles:', totalArticles)
+    const allArticles = [...rssResults, ...newsdataResults]
 
+    // Dedupe and filter
     const seenUrls = new Set<string>()
     const seenTitles = new Set<string>()
+    const qualityArticles: Article[] = []
 
-    const exampleLinks: LaneExample[] = results
-      .flatMap(r => r.articles)
-      .filter(a => {
-        if (!a.title || !a.url) return false
+    for (const article of allArticles) {
+      const normalizedTitle = article.title.toLowerCase().trim()
+      if (seenUrls.has(article.url)) continue
+      if (seenTitles.has(normalizedTitle)) continue
+      if (!isQualityArticle(article)) continue
+      seenUrls.add(article.url)
+      seenTitles.add(normalizedTitle)
+      qualityArticles.push(article)
+    }
 
-        // Dedupe by URL and normalized title
-        const normalizedTitle = a.title.toLowerCase().trim()
-        if (seenUrls.has(a.url)) return false
-        if (seenTitles.has(normalizedTitle)) return false
+    const totalArticles = qualityArticles.length
+    console.log('[media] quality articles:', totalArticles)
 
-        // Block noisy categories
-        const cats = a.category ?? []
-        if (cats.some(c => BLOCKED_CATEGORIES.includes(c.toLowerCase()))) return false
-
-        // Must contain a meaningful signal phrase in the title
-        const titleLower = a.title.toLowerCase()
-        const hasSignal = SIGNAL_PHRASES.some(p => titleLower.includes(p))
-        if (!hasSignal) return false
-
-        // Block entries with no real title (short, generic, or company-only names)
-        if (a.title.split(' ').length < 4) return false
-
-        seenUrls.add(a.url)
-        seenTitles.add(normalizedTitle)
-        return true
-      })
-      .slice(0, 3)
-      .map(a => ({
-        label: a.title!.length > 60 ? a.title!.slice(0, 57) + '...' : a.title!,
-        url: a.url!,
-      }))
+    const exampleLinks: LaneExample[] = qualityArticles.slice(0, 3).map(a => ({
+      label: a.title.length > 60 ? a.title.slice(0, 57) + '...' : a.title,
+      url: a.url,
+    }))
 
     const score = normalizeMediaScore(totalArticles)
 
@@ -137,10 +162,10 @@ export async function fetchMediaLane(): Promise<LaneResult> {
       label: 'Media coverage',
       score,
       rawValue: totalArticles,
-      rawLabel: `${totalArticles.toLocaleString()} articles tracked / 30d`,
+      rawLabel: `${totalArticles} quality articles tracked`,
       delta7d: null,
       freshAt,
-      sourceUrl: 'https://currentsapi.services',
+      sourceUrl: 'https://newsdata.io',
       status: 'live',
       exampleLinks,
     }
@@ -154,7 +179,7 @@ export async function fetchMediaLane(): Promise<LaneResult> {
       rawLabel: 'unavailable',
       delta7d: null,
       freshAt,
-      sourceUrl: 'https://currentsapi.services',
+      sourceUrl: 'https://newsdata.io',
       status: 'error',
       error: err instanceof Error ? err.message : 'Unknown error',
     }
