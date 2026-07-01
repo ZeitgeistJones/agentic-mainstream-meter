@@ -5,8 +5,8 @@ const CURRENTS_SEARCH_URL = 'https://api.currentsapi.services/v1/search'
 const MEDIA_KEYWORDS = ['AI agent', 'agentic AI', 'autonomous agent']
 const LOOKBACK_DAYS = 30
 const MAX_CHUNK_DAYS = 7
-const PAGE_SIZE = 200
-const MAX_PAGES = 10
+const PAGE_SIZE = 20 // Free tier max per Currents API
+const MAX_PAGES = 5 // Free tier max 100 retrievable results (20 × 5)
 
 function toRfc3339(date: Date): string {
   return date.toISOString().replace(/\.\d{3}Z$/, '+00:00')
