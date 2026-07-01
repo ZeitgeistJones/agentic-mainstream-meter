@@ -3,28 +3,22 @@ import { normalizeJobsScore } from '@/lib/scoring'
 
 interface AlmanacServer {
   name?: string
-  slug?: string
-  title?: string
-  url?: string
+  id?: string
 }
 
 export async function fetchJobsLane(): Promise<LaneResult> {
   const freshAt = new Date().toISOString()
 
   try {
-<<<<<<< HEAD
-    console.log('[jobs] fetching:', AGENT_ALMANAC_URL)
-    const res = await fetch(AGENT_ALMANAC_URL, {
-      headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0 (contact@example.com)' },
-=======
     console.log('[jobs] fetching: https://agentalmanac.org/api/v1/mcp/servers')
     const res = await fetch('https://agentalmanac.org/api/v1/mcp/servers', {
       headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0' },
->>>>>>> 291b8ac1915c0a89fb03aa21a15d19c85831b4e4
       next: { revalidate: 3600 },
     })
 
-    if (!res.ok) throw new Error(`Agent Almanac error ${res.status}`)
+    if (!res.ok) {
+      throw new Error(`Agent Almanac error ${res.status}`)
+    }
 
     const data = await res.json()
     console.log('[jobs] raw response shape:', JSON.stringify(data).slice(0, 200))
@@ -45,11 +39,7 @@ export async function fetchJobsLane(): Promise<LaneResult> {
 
     console.log('[jobs] MCP server count:', count)
     const score = normalizeJobsScore(count)
-
-    const exampleLinks = servers.slice(0, 5).map(s => ({
-      label: s.title ?? s.name ?? s.slug ?? 'MCP Server',
-      url: s.url ?? `https://agentalmanac.org/mcp/${s.slug ?? ''}`,
-    }))
+    const examples = servers.slice(0, 5).map(s => s.name ?? s.id ?? 'unknown')
 
     return {
       id: 'jobs',
@@ -61,8 +51,7 @@ export async function fetchJobsLane(): Promise<LaneResult> {
       freshAt,
       sourceUrl: 'https://agentalmanac.org',
       status: 'live',
-      examples: exampleLinks.map(e => e.label),
-      exampleLinks,
+      examples,
     }
   } catch (err) {
     console.error('[jobs] caught error:', err)
