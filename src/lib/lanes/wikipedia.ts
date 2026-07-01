@@ -1,12 +1,12 @@
 import type { LaneResult } from '@/types'
 import { normalizeWikipediaScore } from '@/lib/scoring'
 
-export const WIKI_BASKET = [
-  'AI_agent',
-  'Autonomous_agent',
-  'Intelligent_agent',
-  'Multi-agent_system',
-  'Software_agent',
+const WIKI_BASKET = [
+  { article: 'AI_agent', label: 'AI agent' },
+  { article: 'Autonomous_agent', label: 'Autonomous agent' },
+  { article: 'Intelligent_agent', label: 'Intelligent agent' },
+  { article: 'Multi-agent_system', label: 'Multi-agent system' },
+  { article: 'Software_agent', label: 'Software agent' },
 ]
 
 const WIKI_API = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/all-agents'
@@ -20,9 +20,10 @@ function getDateRange(): { start: string; end: string } {
   const startYear = month >= 3 ? year : year - 1
   const startMonth = month >= 3 ? month - 2 : 12 + (month - 2)
   const pad = (n: number) => String(n).padStart(2, '0')
-  const start = `${startYear}${pad(startMonth)}0100`
-  const end = `${endYear}${pad(endMonth)}0100`
-  return { start, end }
+  return {
+    start: `${startYear}${pad(startMonth)}0100`,
+    end: `${endYear}${pad(endMonth)}0100`,
+  }
 }
 
 interface WikiItem { views: number }
@@ -34,10 +35,7 @@ async function fetchArticleViews(article: string, start: string, end: string): P
     headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0 (contact@example.com)' },
     next: { revalidate: 3600 },
   })
-  if (!res.ok) {
-    console.error('[wikipedia] error for', article, res.status)
-    return 0
-  }
+  if (!res.ok) return 0
   const data = await res.json()
   const items: WikiItem[] = data.items ?? []
   return items.reduce((sum, i) => sum + i.views, 0)
@@ -50,7 +48,7 @@ export async function fetchWikipediaLane(): Promise<LaneResult> {
 
   try {
     const viewCounts = await Promise.all(
-      WIKI_BASKET.map(article => fetchArticleViews(article, start, end))
+      WIKI_BASKET.map(b => fetchArticleViews(b.article, start, end))
     )
     const totalViews = viewCounts.reduce((a, b) => a + b, 0)
     console.log('[wikipedia] total views:', totalViews)
@@ -66,7 +64,11 @@ export async function fetchWikipediaLane(): Promise<LaneResult> {
       freshAt,
       sourceUrl: 'https://wikimedia.org/api/rest_v1/',
       status: 'live',
-      examples: ['AI agent', 'Autonomous agent', 'Multi-agent system', 'Intelligent agent', 'Software agent'],
+      examples: WIKI_BASKET.map(b => b.label),
+      exampleLinks: WIKI_BASKET.map(b => ({
+        label: b.label,
+        url: `https://en.wikipedia.org/wiki/${b.article}`,
+      })),
     }
   } catch (err) {
     console.error('[wikipedia] caught error:', err)
