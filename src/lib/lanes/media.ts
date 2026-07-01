@@ -15,8 +15,8 @@ async function fetchKeywordCount(keyword: string, apiKey: string): Promise<numbe
     page_size: '20',
   })
 
+  params.set('apiKey', apiKey)
   const res = await fetch(`https://api.currentsapi.services/v1/search?${params}`, {
-    headers: { Authorization: apiKey },
     next: { revalidate: 3600 },
   })
 
