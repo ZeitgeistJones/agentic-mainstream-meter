@@ -122,7 +122,7 @@ function LaneCard({ lane }: { lane: LaneResult }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-        <a
+        
           href={lane.sourceUrl}
           target="_blank"
           rel="noopener noreferrer"
@@ -146,12 +146,30 @@ function LaneCard({ lane }: { lane: LaneResult }) {
         </div>
       )}
 
-      {lane.examples && lane.examples.length > 0 && (
+      {lane.exampleLinks && lane.exampleLinks.length > 0 && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-faint)', marginBottom: '0.3rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tracked sources</p>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            {lane.examples.join(' · ')}
-          </p>
+          <p style={{ fontSize: '0.7rem', color: 'var(--text-faint)', marginBottom: '0.4rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tracked sources</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            {lane.exampleLinks.map((ex, i) => (
+              
+                key={i}
+                href={ex.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: '0.72rem',
+                  color: 'var(--accent)',
+                  textDecoration: 'none',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  display: 'block',
+                }}
+              >
+                {ex.label} ↗
+              </a>
+            ))}
+          </div>
         </div>
       )}
     </article>
