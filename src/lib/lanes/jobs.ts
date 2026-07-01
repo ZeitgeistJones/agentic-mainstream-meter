@@ -3,7 +3,9 @@ import { normalizeJobsScore } from '@/lib/scoring'
 
 interface AlmanacServer {
   name?: string
-  id?: string
+  slug?: string
+  title?: string
+  url?: string
 }
 
 export async function fetchJobsLane(): Promise<LaneResult> {
@@ -16,9 +18,7 @@ export async function fetchJobsLane(): Promise<LaneResult> {
       next: { revalidate: 3600 },
     })
 
-    if (!res.ok) {
-      throw new Error(`Agent Almanac error ${res.status}`)
-    }
+    if (!res.ok) throw new Error(`Agent Almanac error ${res.status}`)
 
     const data = await res.json()
     console.log('[jobs] raw response shape:', JSON.stringify(data).slice(0, 200))
@@ -39,7 +39,11 @@ export async function fetchJobsLane(): Promise<LaneResult> {
 
     console.log('[jobs] MCP server count:', count)
     const score = normalizeJobsScore(count)
-    const examples = servers.slice(0, 5).map(s => s.name ?? s.id ?? 'unknown')
+
+    const exampleLinks = servers.slice(0, 5).map(s => ({
+      label: s.title ?? s.name ?? s.slug ?? 'MCP Server',
+      url: s.url ?? `https://agentalmanac.org/mcp/${s.slug ?? ''}`,
+    }))
 
     return {
       id: 'jobs',
@@ -51,7 +55,8 @@ export async function fetchJobsLane(): Promise<LaneResult> {
       freshAt,
       sourceUrl: 'https://agentalmanac.org',
       status: 'live',
-      examples,
+      examples: exampleLinks.map(e => e.label),
+      exampleLinks,
     }
   } catch (err) {
     console.error('[jobs] caught error:', err)
