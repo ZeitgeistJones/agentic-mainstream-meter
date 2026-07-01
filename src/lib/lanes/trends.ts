@@ -35,7 +35,7 @@ async function fetchArticleViews(article: string, start: string, end: string): P
   console.log('[trends] fetching:', url)
   const res = await fetch(url, {
     headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0 (contact@example.com)' },
-    cache: 'no-store',
+    next: { revalidate: 3600 },
   })
   if (!res.ok) {
     console.error('[trends] error for', article, res.status, await res.text())

@@ -27,7 +27,7 @@ export async function fetchJobsLane(): Promise<LaneResult> {
     console.log('[jobs] fetching:', AGENT_ALMANAC_URL)
     const res = await fetch(AGENT_ALMANAC_URL, {
       headers: { 'User-Agent': 'AgenticMainstreamMeter/1.0 (contact@example.com)' },
-      cache: 'no-store',
+      next: { revalidate: 3600 },
     })
 
     if (!res.ok) {

@@ -50,12 +50,8 @@ async function fetchSearchPage(
   params.set('apiKey', apiKey)
 
   const url = `${CURRENTS_SEARCH_URL}?${params.toString()}`
-  const res = await fetch(url, { cache: 'no-store' })
+  const res = await fetch(url, { next: { revalidate: 3600 } })
   const text = await res.text()
-
-  // #region agent log
-  fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:fetchSearchPage',message:'chunk page response',data:{keyword,start_date,end_date,page,status:res.status,ok:res.ok,bodyPreview:text.slice(0,300)},timestamp:Date.now(),runId:'post-fix-v2',hypothesisId:'H6'})}).catch(()=>{});
-  // #endregion
 
   if (!res.ok) {
     console.error('[media] error for keyword:', keyword, start_date, end_date, 'page', page, res.status, text)
@@ -86,21 +82,12 @@ async function countArticlesForKeyword(keyword: string, apiKey: string): Promise
   const chunks = getDateChunks()
   console.log('[media] fetching keyword:', keyword, 'chunks:', chunks.length)
 
-  // #region agent log
-  fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:countArticlesForKeyword:pre-fetch',message:'request plan',data:{keyword,chunkCount:chunks.length,chunks},timestamp:Date.now(),runId:'post-fix-v2',hypothesisId:'H6'})}).catch(()=>{});
-  // #endregion
-
   let total = 0
   for (const chunk of chunks) {
     total += await countArticlesForKeywordInChunk(keyword, apiKey, chunk.start_date, chunk.end_date)
   }
 
   console.log('[media] articles for', keyword, ':', total)
-
-  // #region agent log
-  fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:countArticlesForKeyword:success',message:'keyword total',data:{keyword,articleCount:total},timestamp:Date.now(),runId:'post-fix-v2',hypothesisId:'H6'})}).catch(()=>{});
-  // #endregion
-
   return total
 }
 
@@ -135,10 +122,6 @@ export async function fetchMediaLane(): Promise<LaneResult> {
   }
 
   try {
-    // #region agent log
-    fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:fetchMediaLane:entry',message:'lane fetch start',data:{keywordCount:MEDIA_KEYWORDS.length,keywords:MEDIA_KEYWORDS,chunkCount:getDateChunks().length,apiKeyConfigured:true},timestamp:Date.now(),runId:'post-fix-v2',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
-
     const results = await Promise.all(
       MEDIA_KEYWORDS.map(keyword => countArticlesForKeywordSafe(keyword, apiKey))
     )
@@ -146,10 +129,6 @@ export async function fetchMediaLane(): Promise<LaneResult> {
     const failures = results.filter(r => r.failed)
     const totalArticles = counts.reduce((a, b) => a + b, 0)
     console.log('[media] total articles:', totalArticles)
-
-    // #region agent log
-    fetch('http://127.0.0.1:7447/ingest/b75b2913-6a42-4c12-97b9-023a9799687e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5c2ab9'},body:JSON.stringify({sessionId:'5c2ab9',location:'media.ts:fetchMediaLane:summary',message:'lane fetch complete',data:{counts,totalArticles,failures:failures.map(f=>f.error)},timestamp:Date.now(),runId:'post-fix-v2',hypothesisId:'H6'})}).catch(()=>{});
-    // #endregion
 
     if (failures.length === MEDIA_KEYWORDS.length) {
       return {
